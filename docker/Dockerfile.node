@@ -1,0 +1,6 @@
+FROM node:20-alpine
+WORKDIR /var/www/html
+# Exponemos el puerto por defecto que usa Vite
+EXPOSE 5173
+# Comando por defecto para instalar y levantar Vite en desarrollo
+CMD npm install && npm run dev -- --host
