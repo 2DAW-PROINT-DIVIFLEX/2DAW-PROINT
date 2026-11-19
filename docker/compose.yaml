@@ -1,0 +1,70 @@
+# ~/proint/docker/compose.yaml
+# Las variables ${DB_...} se leen del fichero docker/.env
+# (enlace simbólico a ../app/.env, ver pasos)
+services:
+  # Servicio web (Apache + PHP + Laravel)
+  web:
+    build:
+      context: ..                     # ~/proint
+      dockerfile: docker/Dockerfile   # ruta del Dockerfile relativa al contexto
+    container_name: webserver
+    volumes:
+      - ../app:/var/www/html          # bind mount del proyecto Laravel
+      - ./certbot/certs:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - web_network
+    depends_on:
+      - db
+
+  # Servicio de BD
+  db:
+    image: postgres:18
+    container_name: database
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:?Falta DB_DATABASE en el .env}
+      POSTGRES_USER: ${DB_USERNAME:?Falta DB_USERNAME en el .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en el .env}
+    volumes:
+      # En PostgreSQL 18+ el volumen se monta en /var/lib/postgresql
+      - database_data:/var/lib/postgresql
+    networks:
+      - web_network
+    restart: always
+
+  # Servicio de gestión web de la BD (DBeaver)
+  cloudbeaver:
+    image: dbeaver/cloudbeaver
+    container_name: dbeaver
+    ports:
+      - "8082:8978"
+    volumes:
+      - dbeaver_data:/opt/cloudbeaver/workspace
+    networks:
+      - web_network
+    restart: always
+
+# Servicio de Frontend (Node.js + Vite)
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.node
+    container_name: frontend_vite
+    volumes:
+      - ../app:/var/www/html
+    ports:
+      - "5173:5173"
+    networks:
+      - web_network
+    restart: always
+    command: sh -c "npm install && npm run build && tail -f /dev/null"
+
+volumes:
+  database_data:
+  dbeaver_data:
+
+networks:
+  web_network:
+    driver: bridge
